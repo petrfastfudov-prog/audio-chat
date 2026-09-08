@@ -322,6 +322,7 @@
         let localStream = null;
         let peerConnection = null;
         let isMuted = false;
+        let isInitiator = false;
 
         const rtcConfig = {
             iceServers: [
@@ -391,21 +392,18 @@
 
             peerConnection = new RTCPeerConnection(rtcConfig);
 
-            // Передача локальных треков микрофона собеседнику
             if (localStream) {
                 localStream.getTracks().forEach(track => {
                     peerConnection.addTrack(track, localStream);
                 });
             }
 
-            // Получение аудиопотока от собеседника
             peerConnection.ontrack = (event) => {
                 logToTerminal('> audio stream received from peer.');
                 remoteAudio.srcObject = event.streams[0];
                 remoteAudio.play().catch(e => console.log('Autoplay blocked:', e));
             };
 
-            // Отправка ICE-кандидатов через сокеты
             peerConnection.onicecandidate = (event) => {
                 if (event.candidate) {
                     socket.emit('ice_candidate', { candidate: event.candidate });
@@ -413,20 +411,25 @@
             };
         }
 
-        // Сигнальные события WebRTC через Socket.io
+        // Сигнальные события WebRTC
         socket.on('peer_connected', async (data) => {
             statusDiv.innerText = '[ абонент на линии ]';
             logToTerminal(`> connection established. room: ${data.room}`);
             tickerMsg.innerText = 'secure channel active // transmission in progress...';
 
+            // Определяем инициатора по сравнению ID, чтобы не было конфликтов
+            isInitiator = socket.id < data.peerId;
+
             createPeerConnection();
 
-            try {
-                const offer = await peerConnection.createOffer();
-                await peerConnection.setLocalDescription(offer);
-                socket.emit('offer', { offer: offer });
-            } catch (err) {
-                console.error('Ошибка создания offer:', err);
+            if (isInitiator) {
+                try {
+                    const offer = await peerConnection.createOffer();
+                    await peerConnection.setLocalDescription(offer);
+                    socket.emit('offer', { offer: offer });
+                } catch (err) {
+                    console.error('Ошибка создания offer:', err);
+                }
             }
         });
 
