@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ECHO // witch_house_audio</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: #050505;
+            color: #c0c0c0;
+            font-family: 'Share Tech Mono', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            z-index: 10;
+            background-size: 100% 4px, 6px 100%;
+            pointer-events: none;
+        }
+
+        .crt-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, rgba(15,15,20,0.8) 0%, rgba(2,2,3,0.95) 100%);
+            z-index: -1;
+        }
+
+        .container {
+            border: 1px solid #333;
+            background: #08080a;
+            padding: 20px 30px;
+            width: 500px;
+            text-align: center;
+            position: relative;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.95);
+        }
+
+        .online-counter {
+            position: absolute;
+            top: 12px;
+            right: 15px;
+            font-size: 11px;
+            color: #ff0055;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .glitch-title {
+            font-family: 'VT323', monospace;
+            font-size: 54px;
+            letter-spacing: 6px;
+            color: #ff0055;
+            margin-bottom: 0px;
+            text-shadow: 3px 0 #00ffff, -3px 0 #ff0055;
+            animation: glitch 2.5s infinite;
+            width: 100%;
+            display: block;
+            text-align: center;
+        }
+
+        @keyframes glitch {
+            0% { text-shadow: 3px 0 #00ffff, -3px 0 #ff0055; }
+            20% { text-shadow: -3px 0 #00ffff, 3px 0 #ff0055; }
+            40% { text-shadow: 2px 3px #00ffff, -2px -3px #ff0055; }
+            60% { text-shadow: 0 0 15px rgba(255,0,85,0.8); }
+            80% { text-shadow: -2px 3px #00ffff, 2px -3px #ff0055; }
+            100% { text-shadow: 3px 0 #00ffff, -3px 0 #ff0055; }
+        }
+
+        .subtitle {
+            font-size: 10px;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 12px;
+        }
+
+        .screen { display: none; }
+        .screen.active { display: block; animation: fadeIn 0.3s ease-in-out; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.98); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        #status {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 6px;
+            letter-spacing: 1px;
+        }
+
+        .meta-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: #444;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+
+        .codename-btn {
+            background: none;
+            border: none;
+            color: #668;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 10px;
+            cursor: pointer;
+            text-decoration: underline;
+            padding: 0;
+        }
+        .codename-btn:hover { color: #99c; }
+
+        .terminal-log {
+            background: #030304;
+            border: 1px solid #222;
+            padding: 8px;
+            font-size: 10px;
+            color: #777;
+            text-align: left;
+            height: 60px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            line-height: 1.4;
+            scroll-behavior: smooth;
+        }
+
+        .terminal-log::-webkit-scrollbar { width: 4px; }
+        .terminal-log::-webkit-scrollbar-track { background: #030304; }
+        .terminal-log::-webkit-scrollbar-thumb { background: #333; }
+
+        .ticker-wrap {
+            background: #020203;
+            border-top: 1px solid #1a1a1a;
+            border-bottom: 1px solid #1a1a1a;
+            overflow: hidden;
+            white-space: nowrap;
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 4px 0;
+        }
+        .ticker-text {
+            display: inline-block;
+            font-size: 9px;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            animation: ticker 18s linear infinite;
+        }
+        @keyframes ticker {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
+
+        .captcha-box {
+            background: #040406;
+            border: 1px dashed #442;
+            padding: 12px;
+            margin-bottom: 12px;
+            display: none;
+        }
+        .captcha-title {
+            font-size: 10px;
+            color: #a87;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .captcha-code {
+            font-family: 'VT323', monospace;
+            font-size: 24px;
+            color: #ff0055;
+            letter-spacing: 6px;
+            background: #080204;
+            padding: 4px;
+            margin-bottom: 8px;
+            border: 1px solid #311;
+        }
+        .captcha-input {
+            width: 100%;
+            background: #020203;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 6px;
+            font-family: 'Share Tech Mono', monospace;
+            text-align: center;
+            font-size: 13px;
+            letter-spacing: 2px;
+            outline: none;
+            margin-bottom: 6px;
+        }
+        .captcha-input:focus { border-color: #ff0055; }
+        .captcha-error {
+            font-size: 9px;
+            color: #f55;
+            display: none;
+            margin-top: 4px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 10px;
+            background: transparent;
+            border: 1px solid #555;
+            color: #ddd;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: 0.15s;
+            margin-bottom: 6px;
+        }
+
+        .btn:hover {
+            background: #fff;
+            color: #000;
+            border-color: #fff;
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.4);
+        }
+
+        .btn-mute { border-color: #234; color: #78a; }
+        .btn-next { border-color: #255; color: #5cc; }
+        .btn-stop { border-color: #532; color: #ca7; }
+        .btn-exit { border-color: #511; color: #a55; margin-bottom: 0; }
+
+        .blink { animation: blinker 1s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+    <div class="crt-overlay"></div>
+
+    <div class="container">
+        <div class="online-counter" id="online-counter">[ online: active ]</div>
+        <div class="glitch-title">ECHO</div>
+        <div class="subtitle">// anonymous_audio_channel</div>
+
+        <!-- ЭКРАН 1 -->
+        <div id="screen-welcome" class="screen active">
+            <div style="color: #666; font-size: 11px; margin-bottom: 15px;">[ радиостанция готова к запуску ]</div>
+            
+            <div class="captcha-box" id="captcha-box">
+                <div class="captcha-title">верификация нейро-канала</div>
+                <div class="captcha-code" id="captcha-code">79X4</div>
+                <input type="text" class="captcha-input" id="captcha-input" placeholder="введите код с экрана" maxlength="4">
+                <button class="btn" id="btn-verify-captcha" style="border-color: #844; color: #f88; margin-bottom: 0;">подтвердить</button>
+                <div class="captcha-error" id="captcha-error">ошибка верификации. неверный код.</div>
+            </div>
+
+            <button class="btn" id="btn-to-chat">войти в эфир</button>
+        </div>
+
+        <!-- ЭКРАН 2 -->
+        <div id="screen-chat" class="screen">
+            <div id="status">проверка микрофона<span class="blink">...</span></div>
+            
+            <div class="meta-row">
+                <span id="codename-display">позывной: #Ghost_404</span>
+                <button class="codename-btn" id="btn-change-codename">[ сменить ]</button>
+            </div>
+            
+            <div class="terminal-log" id="term-log">
+                > system.init()<br>
+                > requesting audio hardware...
+            </div>
+
+            <div class="ticker-wrap">
+                <div class="ticker-text" id="ticker-msg">security protocol active // requesting microphone permissions...</div>
+            </div>
+
+            <button class="btn btn-mute" id="btn-mute">микрофон: вкл</button>
+            <button class="btn btn-next" id="btn-next">следующий (поиск)</button>
+            <button class="btn btn-stop" id="btn-stop">стоп</button>
+            <button class="btn btn-exit" id="btn-exit">выход</button>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+
+        const screenWelcome = document.getElementById('screen-welcome');
+        const screenChat = document.getElementById('screen-chat');
+        const btnToChat = document.getElementById('btn-to-chat');
+        const btnExit = document.getElementById('btn-exit');
+        const btnStop = document.getElementById('btn-stop');
+        const btnNext = document.getElementById('btn-next');
+        const btnMute = document.getElementById('btn-mute');
+        const btnChangeCodename = document.getElementById('btn-change-codename');
+        const codenameDisplay = document.getElementById('codename-display');
+        const statusDiv = document.getElementById('status');
+        const termLog = document.getElementById('term-log');
+        const tickerMsg = document.getElementById('ticker-msg');
+
+        const captchaBox = document.getElementById('captcha-box');
+        const captchaCode = document.getElementById('captcha-code');
+        const captchaInput = document.getElementById('captcha-input');
+        const btnVerifyCaptcha = document.getElementById('btn-verify-captcha');
+        const captchaError = document.getElementById('captcha-error');
+
+        let currentCaptcha = '';
+        let localStream = null;
+        let isMuted = false;
+
+        const codenames = [
+            "#Ghost_404", "#Void_Walker", "#Static_Heart", 
+            "#Neon_Ash", "#Dead_Channel", "#Signal_Zero", 
+            "#Cipher_9", "#Night_Drifter", "#Black_Wave"
+        ];
+
+        function logToTerminal(text) {
+            termLog.innerHTML += `<br>${text}`;
+            termLog.scrollTop = termLog.scrollHeight;
+        }
+
+        btnChangeCodename.addEventListener('click', () => {
+            const randomName = codenames[Math.floor(Math.random() * codenames.length)];
+            codenameDisplay.innerText = `позывной: ${randomName}`;
+            logToTerminal(`> alias updated to ${randomName}`);
+        });
+
+        function generateCaptcha() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let code = '';
+            for (let i = 0; i < 4; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            currentCaptcha = code;
+            captchaCode.innerText = code;
+            captchaInput.value = '';
+            captchaError.style.display = 'none';
+        }
+
+        btnToChat.addEventListener('click', () => {
+            generateCaptcha();
+            btnToChat.style.display = 'none';
+            captchaBox.style.display = 'block';
+            captchaInput.focus();
+        });
+
+        async function initMicrophone() {
+            try {
+                logToTerminal('> requesting navigator.mediaDevices.getUserMedia...');
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                
+                statusDiv.innerText = '[ микрофон активен ]';
+                logToTerminal('> mic access granted: hardware ready.');
+                tickerMsg.innerText = 'microphone hardware connected // audio stream active...';
+
+                socket.emit('find_peer');
+            } catch (error) {
+                console.error('Ошибка доступа к микрофону:', error);
+                statusDiv.innerText = '[ ошибка доступа к микрофону ]';
+                logToTerminal(`> error: mic access denied (${error.name})`);
+                tickerMsg.innerText = 'error: microphone permission denied...';
+            }
+        }
+
+        btnVerifyCaptcha.addEventListener('click', () => {
+            if (captchaInput.value.toUpperCase() === currentCaptcha) {
+                captchaBox.style.display = 'none';
+                btnToChat.style.display = 'block';
+                screenWelcome.classList.remove('active');
+                screenChat.classList.add('active');
+                
+                initMicrophone();
+            } else {
+                captchaError.style.display = 'block';
+                generateCaptcha();
+            }
+        });
+
+        captchaInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                btnVerifyCaptcha.click();
+            }
+        });
+
+        socket.on('peer_connected', (data) => {
+            statusDiv.innerText = '[ абонент на линии ]';
+            logToTerminal(`> connection established. room: ${data.room}`);
+            tickerMsg.innerText = 'secure channel active // transmission in progress...';
+        });
+
+        socket.on('peer_disconnected', () => {
+            logToTerminal('> peer disconnected. scanning...');
+            statusDiv.innerText = '[ поиск собеседника ]';
+            socket.emit('find_peer');
+        });
+
+        btnNext.addEventListener('click', () => {
+            logToTerminal('> searching next peer...');
+            statusDiv.innerText = '[ поиск собеседника ]';
+            socket.emit('leave_room');
+            socket.emit('find_peer');
+        });
+
+        btnStop.addEventListener('click', () => {
+            logToTerminal('> stream on hold.');
+            statusDiv.innerText = '[ эфир на паузе ]';
+        });
+
+        btnExit.addEventListener('click', () => {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            socket.emit('leave_room');
+            screenChat.classList.remove('active');
+            screenWelcome.classList.add('active');
+            logToTerminal('> disconnected from station.');
+        });
+
+        btnMute.addEventListener('click', () => {
+            if (!localStream) return;
+            const audioTrack = localStream.getAudioTracks()[0];
+            if (audioTrack) {
+                isMuted = !isMuted;
+                audioTrack.enabled = !isMuted;
+                if (isMuted) {
+                    btnMute.innerText = 'микрофон: выкл';
+                    btnMute.style.borderColor = '#833';
+                    btnMute.style.color = '#f55';
+                    logToTerminal('> mic muted.');
+                } else {
+                    btnMute.innerText = 'микрофон: вкл';
+                    btnMute.style.borderColor = '#234';
+                    btnMute.style.color = '#78a';
+                    logToTerminal('> mic unmuted.');
+                }
+            }
+        });
+    </script>
+</body>
+</html>
