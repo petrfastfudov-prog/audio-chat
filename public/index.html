@@ -292,6 +292,9 @@
         </div>
     </div>
 
+    <!-- Аудиоэлемент для воспроизведения голоса собеседника -->
+    <audio id="remote-audio" autoplay playsinline></audio>
+
     <script>
         const socket = io();
 
@@ -307,6 +310,7 @@
         const statusDiv = document.getElementById('status');
         const termLog = document.getElementById('term-log');
         const tickerMsg = document.getElementById('ticker-msg');
+        const remoteAudio = document.getElementById('remote-audio');
 
         const captchaBox = document.getElementById('captcha-box');
         const captchaCode = document.getElementById('captcha-code');
@@ -316,7 +320,15 @@
 
         let currentCaptcha = '';
         let localStream = null;
+        let peerConnection = null;
         let isMuted = false;
+
+        const rtcConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
 
         const codenames = [
             "#Ghost_404", "#Void_Walker", "#Static_Heart", 
@@ -359,9 +371,9 @@
                 logToTerminal('> requesting navigator.mediaDevices.getUserMedia...');
                 localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
                 
-                statusDiv.innerText = '[ микрофон активен ]';
+                statusDiv.innerText = '[ поиск собеседника ]';
                 logToTerminal('> mic access granted: hardware ready.');
-                tickerMsg.innerText = 'microphone hardware connected // audio stream active...';
+                tickerMsg.innerText = 'microphone hardware connected // searching for peer...';
 
                 socket.emit('find_peer');
             } catch (error) {
@@ -371,6 +383,92 @@
                 tickerMsg.innerText = 'error: microphone permission denied...';
             }
         }
+
+        function createPeerConnection() {
+            if (peerConnection) {
+                peerConnection.close();
+            }
+
+            peerConnection = new RTCPeerConnection(rtcConfig);
+
+            // Передача локальных треков микрофона собеседнику
+            if (localStream) {
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+            }
+
+            // Получение аудиопотока от собеседника
+            peerConnection.ontrack = (event) => {
+                logToTerminal('> audio stream received from peer.');
+                remoteAudio.srcObject = event.streams[0];
+                remoteAudio.play().catch(e => console.log('Autoplay blocked:', e));
+            };
+
+            // Отправка ICE-кандидатов через сокеты
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('ice_candidate', { candidate: event.candidate });
+                }
+            };
+        }
+
+        // Сигнальные события WebRTC через Socket.io
+        socket.on('peer_connected', async (data) => {
+            statusDiv.innerText = '[ абонент на линии ]';
+            logToTerminal(`> connection established. room: ${data.room}`);
+            tickerMsg.innerText = 'secure channel active // transmission in progress...';
+
+            createPeerConnection();
+
+            try {
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                socket.emit('offer', { offer: offer });
+            } catch (err) {
+                console.error('Ошибка создания offer:', err);
+            }
+        });
+
+        socket.on('offer', async (data) => {
+            createPeerConnection();
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                socket.emit('answer', { answer: answer });
+            } catch (err) {
+                console.error('Ошибка обработки offer:', err);
+            }
+        });
+
+        socket.on('answer', async (data) => {
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            } catch (err) {
+                console.error('Ошибка обработки answer:', err);
+            }
+        });
+
+        socket.on('ice_candidate', async (data) => {
+            try {
+                if (peerConnection && data.candidate) {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+                }
+            } catch (err) {
+                console.error('Ошибка добавления ICE:', err);
+            }
+        });
+
+        socket.on('peer_disconnected', () => {
+            logToTerminal('> peer disconnected. scanning...');
+            statusDiv.innerText = '[ поиск собеседника ]';
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            socket.emit('find_peer');
+        });
 
         btnVerifyCaptcha.addEventListener('click', () => {
             if (captchaInput.value.toUpperCase() === currentCaptcha) {
@@ -392,21 +490,13 @@
             }
         });
 
-        socket.on('peer_connected', (data) => {
-            statusDiv.innerText = '[ абонент на линии ]';
-            logToTerminal(`> connection established. room: ${data.room}`);
-            tickerMsg.innerText = 'secure channel active // transmission in progress...';
-        });
-
-        socket.on('peer_disconnected', () => {
-            logToTerminal('> peer disconnected. scanning...');
-            statusDiv.innerText = '[ поиск собеседника ]';
-            socket.emit('find_peer');
-        });
-
         btnNext.addEventListener('click', () => {
             logToTerminal('> searching next peer...');
             statusDiv.innerText = '[ поиск собеседника ]';
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
             socket.emit('leave_room');
             socket.emit('find_peer');
         });
@@ -414,11 +504,20 @@
         btnStop.addEventListener('click', () => {
             logToTerminal('> stream on hold.');
             statusDiv.innerText = '[ эфир на паузе ]';
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            socket.emit('leave_room');
         });
 
         btnExit.addEventListener('click', () => {
             if (localStream) {
                 localStream.getTracks().forEach(track => track.stop());
+            }
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
             }
             socket.emit('leave_room');
             screenChat.classList.remove('active');
